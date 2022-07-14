@@ -5,13 +5,12 @@
 #include <WiFiManager.h>
 #include "CTPLinkSmartDevice.h"
 #include "CTPLNetworkClient.h"
+#include "Utilities.h"
 
 #include <vector>
 
 WiFiManager wifiManager;
 WiFiMulti WiFiMulti;
-
-void printHexString(std::vector<uint8_t> dataBytes);
 
 
 CTPLinkSmartDevice smartDevice;

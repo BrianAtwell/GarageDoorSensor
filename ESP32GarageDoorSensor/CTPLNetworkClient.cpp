@@ -9,7 +9,58 @@
 #include <vector>
 #include "Utilities.h"
 
+int CTPLNetworkLocalUtilities::littleToBigEndian(int dataIn)
+{
+  int bigEndian;
+  uint8_t* bigEndianPtr=((uint8_t*)&bigEndian);
+  uint8_t* dataInPtr = ((uint8_t*)&dataIn);
+  bigEndianPtr[0]=dataInPtr[3];
+  bigEndianPtr[1]=dataInPtr[2];
+  bigEndianPtr[2]=dataInPtr[1];
+  bigEndianPtr[3]=dataInPtr[0];
 
+  //Serial.print("length: ");
+  //printHexString(bigEndian);
+
+  return bigEndian;
+}
+
+void CTPLNetworkLocalUtilities::xorEncrypt(std::vector<uint8_t>& unencrypted, std::vector<uint8_t>& output)
+{
+  int len = unencrypted.size();
+  uint8_t key = CTPLNetworkLocalUtilities::InitializationVector;
+  for(int i=0; i<len; i++)
+  {
+      key = key ^ unencrypted[i];
+      output.push_back(key);
+  }
+}
+
+void CTPLNetworkLocalUtilities::encrypt(std::vector<uint8_t> &inputJSON, std::vector<uint8_t>& pack)
+{
+  unsigned int len = CTPLNetworkLocalUtilities::littleToBigEndian(inputJSON.size());
+  CTPLNetworkLocalUtilities::xorEncrypt(inputJSON, pack);
+  pack.insert(pack.begin()++, (uint8_t*)&len, ((uint8_t*)&len)+4);
+}
+
+
+void CTPLNetworkLocalUtilities::xorDecrypted(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &output)
+{
+  int len = ciphertext.size();
+  uint8_t key = CTPLNetworkLocalUtilities::InitializationVector;
+  uint8_t plainbyte=0;
+  for(int i=0; i<len; i++)
+  {
+      plainbyte = key ^ ciphertext[i];
+      key = ciphertext[i];
+      output.push_back(plainbyte);
+  }
+}
+
+void CTPLNetworkLocalUtilities::decrypt(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &unencrypted)
+{
+  CTPLNetworkLocalUtilities::xorDecrypted(ciphertext, unencrypted);
+}
 
 bool CTPLNetworkCloudClient::connect()
 {
@@ -33,8 +84,6 @@ String CTPLNetworkCloudClient::sendRequest(String jsonStr)
 
 const char* CTPLNetworkLocalClient::udpDiscoveryAddress = "255.255.255.255";
 
-
-
 bool CTPLNetworkLocalClient::connect()
 {
   return false;
@@ -47,73 +96,40 @@ bool CTPLNetworkLocalClient::disconnect()
 
 void CTPLNetworkLocalClient::start()
 {
-  startDiscovery();
 }
 
-void CTPLNetworkLocalClient::startDiscovery()
+
+
+void CTPLNetworkLocalClient::update()
+{
+}
+
+bool CTPLNetworkLocalClient::isConnected()
+{
+  return false;
+}
+
+String CTPLNetworkLocalClient::sendRequest(String jsonStr)
+{
+  return String("");
+}
+
+void addClient(CTPLNetworkLocalClient client)
+{
+  list.add(client);
+}
+
+void CTPLLocalDiscovery::start()
 {
   udp.begin(WiFi.localIP(),udpDiscoveryPort);
 }
 
-void CTPLNetworkLocalClient::stopDiscovery()
+void CTPLLocalDiscovery::stop()
 {
   
 }
 
-int CTPLNetworkLocalClient::littleToBigEndian(int dataIn)
-{
-  int bigEndian;
-  uint8_t* bigEndianPtr=((uint8_t*)&bigEndian);
-  uint8_t* dataInPtr = ((uint8_t*)&dataIn);
-  bigEndianPtr[0]=dataInPtr[3];
-  bigEndianPtr[1]=dataInPtr[2];
-  bigEndianPtr[2]=dataInPtr[1];
-  bigEndianPtr[3]=dataInPtr[0];
-
-  //Serial.print("length: ");
-  //printHexString(bigEndian);
-
-  return bigEndian;
-}
-
-void CTPLNetworkLocalClient::xorEncrypt(std::vector<uint8_t>& unencrypted, std::vector<uint8_t>& output)
-{
-  int len = unencrypted.size();
-  uint8_t key = CTPLNetworkLocalClient::InitializationVector;
-  for(int i=0; i<len; i++)
-  {
-      key = key ^ unencrypted[i];
-      output.push_back(key);
-  }
-}
-
-void CTPLNetworkLocalClient::encrypt(std::vector<uint8_t> &inputJSON, std::vector<uint8_t>& pack)
-{
-  unsigned int len = littleToBigEndian(inputJSON.size());
-  xorEncrypt(inputJSON, pack);
-  pack.insert(pack.begin()++, (uint8_t*)&len, ((uint8_t*)&len)+4);
-}
-
-
-void CTPLNetworkLocalClient::xorDecrypted(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &output)
-{
-  int len = ciphertext.size();
-  uint8_t key = CTPLNetworkLocalClient::InitializationVector;
-  uint8_t plainbyte=0;
-  for(int i=0; i<len; i++)
-  {
-      plainbyte = key ^ ciphertext[i];
-      key = ciphertext[i];
-      output.push_back(plainbyte);
-  }
-}
-
-void CTPLNetworkLocalClient::decrypt(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &unencrypted)
-{
-  xorDecrypted(ciphertext, unencrypted);
-}
-
-void CTPLNetworkLocalClient::updateDiscovery()
+void CTPLLocalDiscovery::update()
 {
   char dataStr[] = "{\"system\": {\"get_sysinfo\": null}}";
   std::vector<uint8_t> discoveryPacket;
@@ -134,7 +150,7 @@ void CTPLNetworkLocalClient::updateDiscovery()
     //udp.printf("Seconds since boot: %lu", millis()/1000);
     
     // Encrypt message
-    encrypt(discoveryPacket, packedPacket);
+    CTPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
     
     //Serial.println("Discovery Packet Encrypted: ");
     //printHexString(packedPacket);
@@ -174,22 +190,7 @@ void CTPLNetworkLocalClient::updateDiscovery()
     
     // Decrypt message
     std::vector<uint8_t> decryptedPacket;
-    decrypt(packedPacket, decryptedPacket);
+    CTPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
     printByteString(decryptedPacket);
   }
-}
-
-void CTPLNetworkLocalClient::update()
-{
-  updateDiscovery();
-}
-
-bool CTPLNetworkLocalClient::isConnected()
-{
-  return false;
-}
-
-String CTPLNetworkLocalClient::sendRequest(String jsonStr)
-{
-  return String("");
 }
