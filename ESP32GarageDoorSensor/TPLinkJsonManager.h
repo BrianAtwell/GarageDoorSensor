@@ -1,16 +1,16 @@
 /*
- * File: CTPLinkJsonManager.h
+ * File: TPLinkJsonManager.h
  * Description: Handle JSON conversions
  */
 
-#ifndef _CTPLINKJSONMANAGER_H_
-#define _CTPLINKJSONMANAGER_H_
+#ifndef _TPLINKJSONMANAGER_H_
+#define _TPLINKJSONMANAGER_H_
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
 
-class CTPLinkJsonManager
+class TPLinkJsonManager
 {
 public:
 

@@ -1,17 +1,17 @@
 /*
- * File: CTPLinkSmartDevice.h
+ * File: TPLinkSmartDevice.h
  * Description: Interfaces with TP-Link smart devices over coud API
  */
 
-#ifndef _CTPLINKSMARTDEVICE_H_
-#define _CTPLINKSMARTDEVICE_H_
+#ifndef _TPLinkSmartDevice_H_
+#define _TPLinkSmartDevice_H_
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include "CTPLinkJsonManager.h"
+#include "TPLinkJsonManager.h"
 
 
-class CTPLinkSmartDevice
+class TPLinkSmartDevice
 {
 private:
   int errorCode;
