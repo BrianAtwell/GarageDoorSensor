@@ -82,7 +82,7 @@ String CTPLNetworkCloudClient::sendRequest(String jsonStr)
   return String("");
 }
 
-const char* CTPLNetworkLocalClient::udpDiscoveryAddress = "255.255.255.255";
+const char* CTPLLocalDiscovery::udpDiscoveryAddress = "255.255.255.255";
 
 bool CTPLNetworkLocalClient::connect()
 {
@@ -112,11 +112,6 @@ bool CTPLNetworkLocalClient::isConnected()
 String CTPLNetworkLocalClient::sendRequest(String jsonStr)
 {
   return String("");
-}
-
-void addClient(CTPLNetworkLocalClient client)
-{
-  list.add(client);
 }
 
 void CTPLLocalDiscovery::start()

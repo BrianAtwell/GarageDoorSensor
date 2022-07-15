@@ -14,7 +14,8 @@ WiFiMulti WiFiMulti;
 
 
 CTPLinkSmartDevice smartDevice;
-CTPLNetworkLocalClient localClient;
+//CTPLNetworkLocalClient localClient;
+CTPLLocalDiscovery localDiscovery;
 
 const int CONFIG_PANEL_PIN=35;
 
@@ -109,10 +110,10 @@ void setup() {
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
-  localClient.start();
+  localDiscovery.start();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  localClient.update();
+  localDiscovery.update();
 }
