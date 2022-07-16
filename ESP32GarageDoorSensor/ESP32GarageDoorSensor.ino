@@ -3,8 +3,8 @@
 #include <WiFiMulti.h>
 #include <strings_en.h>
 #include <WiFiManager.h>
-#include "CTPLinkSmartDevice.h"
-#include "CTPLNetworkClient.h"
+#include "TPLinkSmartDevice.h"
+#include "TPLNetworkClient.h"
 #include "Utilities.h"
 
 #include <vector>
@@ -12,10 +12,11 @@
 WiFiManager wifiManager;
 WiFiMulti WiFiMulti;
 
-
-CTPLinkSmartDevice smartDevice;
-//CTPLNetworkLocalClient localClient;
-CTPLLocalDiscovery localDiscovery;
+TPLinkSmartDevice smartDevice;
+//TPLNetworkLocalClient localClient;
+//TPLLocalDiscovery localDiscovery;
+TPLNetworkManager netManager;
+TPLClientHandler client1("8006E12261657034F224406C89EA50301CFB2A92");
 
 const int CONFIG_PANEL_PIN=35;
 
@@ -110,10 +111,12 @@ void setup() {
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
-  localDiscovery.start();
+  netManager.addClient(client1);
+
+  netManager.start();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  localDiscovery.update();
+  netManager.update();
 }
