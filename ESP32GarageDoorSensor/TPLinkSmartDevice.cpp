@@ -45,7 +45,7 @@ void TPLinkSmartDevice::onPacketReceived(StaticJsonDocument<1024>& doc)
   updateRelayState();
 }
 
-bool TPLinkSmartDevice::SetRelay(bool state)
+bool TPLinkSmartDevice::setRelay(bool state)
 {
   setRelayState=0;
   setRelayState = setRelayState|0x1;
@@ -64,22 +64,33 @@ bool TPLinkSmartDevice::SetRelay(bool state)
     JsonObject system_get_sysinfo = doc["system"]["get_sysinfo"];
     curRelayState = system_get_sysinfo["relay_state"];
     updateRelayState();
+    return true;
   }
   
   return false;
 }
 
-bool TPLinkSmartDevice::GetRelay()
+bool TPLinkSmartDevice::getRelay()
 {
   return curRelayState;
 }
 
-bool TPLinkSmartDevice::Update()
+bool TPLinkSmartDevice::update()
 {
 
   if((setRelayState&0x1)==0x1)
   {
-    updateRelayState();
+    bool state = (setRelayState<<0x1)&0x1;
+    String jsonStr = String("{\"system\":{\"set_relay_state\":{\"state\": ")+String(state)+String("}}}");
+    StaticJsonDocument<1024> doc;
+  
+    if( sendRequest(jsonStr, doc))
+    {
+      JsonObject system_get_sysinfo = doc["system"]["get_sysinfo"];
+      curRelayState = system_get_sysinfo["relay_state"];
+      updateRelayState();
+      return true;
+    }
   }
   return false;
 }

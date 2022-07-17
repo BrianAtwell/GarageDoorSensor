@@ -104,7 +104,7 @@ void setup() {
   WiFi.mode(WIFI_STA);
 
   pollConfigPanelSwitch();
-  smartDevice.SetRelay(true);
+  smartDevice.setRelay(true);
 
   setClock();
 

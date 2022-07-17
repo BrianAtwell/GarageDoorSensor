@@ -235,6 +235,10 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
     
     // Decrypt message
     TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
+
+    Serial.print("Discovery Packet Recieved from IP: ");
+    Serial.println(udp.remoteIP().toString());
+    printByteString(decryptedPacket);
     
 
     DeserializationError error = deserializeJson(doc, decryptedPacket.data());
@@ -246,10 +250,6 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
     }
     
     ip = udp.remoteIP().toString();
-
-    Serial.print("Discovery Packet Recieved from IP: ");
-    Serial.println(ip);
-    printByteString(decryptedPacket);
 
     return true;
   }
@@ -277,6 +277,10 @@ void TPLClientHandler::onPacketReceived(StaticJsonDocument<1024>& doc)
 String& TPLClientHandler::getIP()
 {
   return ip;
+}
+
+void TPLClientHandler::update()
+{
 }
 
 TPLNetworkManager::TPLNetworkManager() : networkType(TPLNetworkManager::NetworkType::LocalTPLNetwork)
@@ -331,6 +335,7 @@ void TPLNetworkManager::toType(StaticJsonDocument<1024> &doc, TPLClientHandler* 
 
 void TPLNetworkManager::update()
 {
+  bool hasUpdated=false;
   if(TPLNetworkManager::NetworkType::LocalTPLNetwork  == networkType)
   {
     // Local Discovery Update Start
@@ -376,11 +381,17 @@ void TPLNetworkManager::update()
           */
           
           handler->onPacketReceived(doc);
+          break;
         }
       }
     }
     // Local Discovery Update End
   }
-  
-  
+
+  // Loop through client handlers
+  for(std::list<TPLClientHandler*>::iterator iter= clientList.begin(); iter != clientList.end(); iter++)
+  {
+    TPLClientHandler *handler = *iter;
+    handler->update();
+  }
 }

@@ -82,6 +82,7 @@ public:
   const char* getDeviceID();
   String& getIP();
   TPLNetworkLocalUtilities::SmartDeviceType getType();
+  void update();
   
   friend class TPLNetworkManager;
 };
