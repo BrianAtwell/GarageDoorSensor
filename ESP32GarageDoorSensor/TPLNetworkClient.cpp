@@ -77,68 +77,93 @@ namespace TPLNetworkCloudClient
 
 namespace TPLNetworkLocalClient
 {
-  std::vector<uint8_t> sendRequest(TPLClientHandler* handler, String jsonStr)
+  bool sendRequest(TPLClientHandler* handler, String& jsonStr, StaticJsonDocument<1024>& doc)
   {
-    const char *dataStr = jsonStr.c_str();
-    std::vector<uint8_t> discoveryPacket;
-    std::vector<uint8_t> packedPacket;
-    std::vector<uint8_t> decryptedPacket;
+    
+    
     uint32_t readPacketLength=0;
     uint32_t bytesRead=0;
     uint32_t bytesToRead=0;
     const uint16_t BUFFER_SIZE = 50;
     char buffer[BUFFER_SIZE];
-  
-    AddUint8ToVector((uint8_t*)dataStr, sizeof(dataStr)-1, discoveryPacket);
-  
+
     // Use WiFiClient class to create TCP connections
     WiFiClient client;
-    if (!client.connect(handler->ip.c_str(), TPLNetworkLocalUtilities::Port)) {
+    if (!client.connect(handler->getIP().c_str(), TPLNetworkLocalUtilities::Port)) {
         Serial.println("connection failed");
-        return decryptedPacket;
+        return false;
     }
+
+    {
+      std::vector<uint8_t> packedPacket;
+      const char *dataStr = jsonStr.c_str();
+      std::vector<uint8_t> discoveryPacket;
+      
+      AddUint8ToVector((uint8_t*)dataStr, sizeof(dataStr)-1, discoveryPacket);
+      
+      // Encrypt message
+      TPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
     
-    // Encrypt message
-    TPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
-  
-    // Send TCP Packet
-    client.write(packedPacket.data(), packedPacket.size());
+      // Send TCP Packet
+      client.write(packedPacket.data(), packedPacket.size());
+    }
   
     // Read Block Size which holds the length
     client.read(((uint8_t*)&readPacketLength), TPLNetworkLocalUtilities::BlockSize);
     
     //client.read(((uint8_t*)&readPacketLength), readPacketLength);
-    
-    while(client.available() > 0 && readPacketLength > bytesRead)
-    {
-      unsigned long timeout = millis();
-      while (client.available() == 0) {
-          if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
-              Serial.println(">>> Client Timeout !");
-              client.stop();
-              return decryptedPacket;
-          }
-      }
-      
-      bytesToRead = readPacketLength-bytesRead;
-      if(bytesToRead > BUFFER_SIZE)
-      {
-        bytesToRead = BUFFER_SIZE;
-      }
-      
-      client.read((uint8_t *)buffer, BUFFER_SIZE);
-  
-      bytesRead+=bytesToRead;
-      
-      packedPacket.insert(packedPacket.end(),buffer,buffer+bytesToRead);
-      //printHexString(packedPacket);
-    }
-  
-    // Decrypt
-    TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
-    printByteString(decryptedPacket);
 
-    return decryptedPacket;
+    std::vector<uint8_t> decryptedPacket;
+
+    {
+      std::vector<uint8_t> packedPacket;
+      uint32_t readPacketLength=0;
+      uint32_t bytesRead=0;
+      uint32_t bytesToRead=0;
+      const uint16_t BUFFER_SIZE = 50;
+      char buffer[BUFFER_SIZE];
+      
+      while(client.available() > 0 && readPacketLength > bytesRead)
+      {
+        unsigned long timeout = millis();
+        while (client.available() == 0) {
+            if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
+                Serial.println(">>> Client Timeout !");
+                client.stop();
+                return false;
+            }
+        }
+        
+        bytesToRead = readPacketLength-bytesRead;
+        if(bytesToRead > BUFFER_SIZE)
+        {
+          bytesToRead = BUFFER_SIZE;
+        }
+        
+        client.read((uint8_t *)buffer, BUFFER_SIZE);
+    
+        bytesRead+=bytesToRead;
+        
+        packedPacket.insert(packedPacket.end(),buffer,buffer+bytesToRead);
+        //printHexString(packedPacket);
+      }
+    
+      // Decrypt
+      TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
+
+      //printByteString(decryptedPacket);
+
+    }
+
+    DeserializationError error = deserializeJson(doc, decryptedPacket.data());
+
+    if (error) {
+      Serial.print("deserializeJson() failed: ");
+      Serial.println(error.c_str());
+      return false;
+    }
+
+    return true;
   }
 };
 
@@ -151,7 +176,7 @@ void TPLLocalDiscovery::start()
 
 void TPLLocalDiscovery::stop()
 {
-  
+  udp.stop();
 }
 
 bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
@@ -210,7 +235,7 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
     
     // Decrypt message
     TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
-    //printByteString(decryptedPacket);
+    
 
     DeserializationError error = deserializeJson(doc, decryptedPacket.data());
 
@@ -219,22 +244,29 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
       Serial.println(error.c_str());
       return false;
     }
-
-    JsonObject system_get_sysinfo = doc["system"]["get_sysinfo"];
+    
     ip = udp.remoteIP().toString();
+
+    Serial.print("Discovery Packet Recieved from IP: ");
+    Serial.println(ip);
+    printByteString(decryptedPacket);
 
     return true;
   }
   return false;
 }
 
-TPLClientHandler::TPLClientHandler(const char* ldeviceID):deviceID(ldeviceID), ip(String("")), relayState(0)
+TPLClientHandler::TPLClientHandler(const char* ldeviceID):deviceID(ldeviceID), ip(String("")), type(TPLNetworkLocalUtilities::SmartDeviceType::None), manager(nullptr)
 {
 }
 
-String TPLClientHandler::sendRequest(String jsonStr)
+bool TPLClientHandler::sendRequest(String& jsonStr, StaticJsonDocument<1024>& doc)
 {
-  return String("");
+  if(manager)
+  {
+    return manager->sendRequest(this, jsonStr, doc);
+  }
+  return false;
 }
   
 void TPLClientHandler::onPacketReceived(StaticJsonDocument<1024>& doc)
@@ -242,7 +274,12 @@ void TPLClientHandler::onPacketReceived(StaticJsonDocument<1024>& doc)
   
 }
 
-TPLNetworkManager::TPLNetworkManager()
+String& TPLClientHandler::getIP()
+{
+  return ip;
+}
+
+TPLNetworkManager::TPLNetworkManager() : networkType(TPLNetworkManager::NetworkType::LocalTPLNetwork)
 {
   
 }
@@ -255,6 +292,20 @@ void TPLNetworkManager::start()
 void TPLNetworkManager::addClient(TPLClientHandler& client)
 {
   clientList.push_back(&client);
+  client.manager=this;
+}
+
+bool TPLNetworkManager::sendRequest(TPLClientHandler* handler, String& jsonStr, StaticJsonDocument<1024>& doc)
+{
+  if(TPLNetworkManager::NetworkType::LocalTPLNetwork  == networkType)
+  {
+    return TPLNetworkLocalClient::sendRequest(handler, jsonStr, doc);
+  }
+  if(TPLNetworkManager::NetworkType::CloudTPLNetwork  == networkType)
+  {
+    // todo add TPLNetworkCloudClient
+  }
+  return false;
 }
 
 void TPLNetworkManager::toType(StaticJsonDocument<1024> &doc, TPLClientHandler* handler)
@@ -280,42 +331,56 @@ void TPLNetworkManager::toType(StaticJsonDocument<1024> &doc, TPLClientHandler* 
 
 void TPLNetworkManager::update()
 {
-  // Local Discovery Update Start
-  StaticJsonDocument<1024> doc;
-  String ip="";
-  if(localDiscovery.update(doc, ip))
+  if(TPLNetworkManager::NetworkType::LocalTPLNetwork  == networkType)
   {
-    JsonObject system_get_sysinfo = doc["system"]["get_sysinfo"];
-    const char* deviceId = system_get_sysinfo["deviceId"];
-
-    for(std::list<TPLClientHandler*>::iterator iter= clientList.begin(); iter != clientList.end(); iter++)
+    // Local Discovery Update Start
+    StaticJsonDocument<1024> doc;
+    String ip="";
+    if(localDiscovery.update(doc, ip))
     {
-      TPLClientHandler *handler = *iter;
-
-      if(deviceId && strncmp(handler->deviceID, deviceId, DEVICE_ID_LENGTH) == 0)
+      JsonObject system_get_sysinfo = doc["system"]["get_sysinfo"];
+      const char* deviceId = system_get_sysinfo["deviceId"];
+  
+      // Update when any devices are found
+      // We can't garentee the desired device is on the same network.
+      // But want to make sure if we are getting data??
+      // Too complex for now.
+      //if(deviceId)
+      //{
+      //  localTimeUpdate=time(nullptr);
+      //}
+  
+      // Loop through client handlers
+      for(std::list<TPLClientHandler*>::iterator iter= clientList.begin(); iter != clientList.end(); iter++)
       {
-        Serial.print("Handler Device ID: ");
-        Serial.println(deviceId);
-        // Found device
-        if(ip.length() > 0)
+        TPLClientHandler *handler = *iter;
+  
+        if(deviceId && strncmp(handler->deviceID, deviceId, DEVICE_ID_LENGTH) == 0)
         {
-          handler->ip = ip;
-        }
-        
-        handler->relayState=system_get_sysinfo["relay_state"];
-        TPLNetworkManager::toType(doc, handler);
+          //localDeviceUpdate=time(nullptr);
+  
+          // Found device
+          if(ip.length() > 0)
+          {
+            handler->ip = ip;
+          }
+          
+          TPLNetworkManager::toType(doc, handler);
 
-        Serial.print("ClientHandle Updated");
-        Serial.print(" relayState: ");
-        Serial.print(handler->relayState);
-        Serial.print(" IP: ");
-        Serial.println(handler->ip);
-        
-        handler->onPacketReceived(doc);
+          /*
+          Serial.println("ClientHandle Updated");
+          Serial.print("Handler Device ID: ");
+          Serial.println(deviceId);
+          Serial.print(" IP: ");
+          Serial.println(handler->getIP());
+          */
+          
+          handler->onPacketReceived(doc);
+        }
       }
     }
+    // Local Discovery Update End
   }
-  // Local Discovery Update End
   
   
 }

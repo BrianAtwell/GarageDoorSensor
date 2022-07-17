@@ -34,7 +34,7 @@ public:
   static void xorDecrypted(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &output);
   static void decrypt(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &unencrypted);
 
-  enum SmartDeviceType { SmartPlug,  SmartBulb, SmartDimmer, SmartStrip, SmartLightStrip};
+  enum SmartDeviceType {None, SmartPlug,  SmartBulb, SmartDimmer, SmartStrip, SmartLightStrip};
 };
 
 namespace TPLNetworkCloudClient
@@ -45,7 +45,7 @@ namespace TPLNetworkCloudClient
 
 namespace TPLNetworkLocalClient
 {
-  std::vector<uint8_t> sendRequest(TPLClientHandler* handler, String jsonStr);
+  bool sendRequest(TPLClientHandler* handler, String& jsonStr, StaticJsonDocument<1024>& doc);
 };
 
 class TPLLocalDiscovery
@@ -65,24 +65,41 @@ public:
 
 class TPLClientHandler
 {
-public:
+private:
   String ip;
   const char* deviceID;
-  //localClientTime;
-  bool relayState;
   TPLNetworkLocalUtilities::SmartDeviceType type;
+  TPLNetworkManager *manager;
+
+protected:
+  
+  void onPacketReceived(StaticJsonDocument<1024>& doc);
 
 public:
   TPLClientHandler(const char* ldeviceID);
-  String sendRequest(String jsonStr);
-  void onPacketReceived(StaticJsonDocument<1024>& doc);
+  bool sendRequest(String& jsonStr, StaticJsonDocument<1024>& doc);
+
+  const char* getDeviceID();
+  String& getIP();
+  TPLNetworkLocalUtilities::SmartDeviceType getType();
   
   friend class TPLNetworkManager;
 };
 
 class TPLNetworkManager
 {
+public:
+  enum NetworkType {LocalTPLNetwork, CloudTPLNetwork};
+ 
 private:
+  //time_t switchTimeout;
+  //time_t disconnetTimeout;
+
+  //time_t localDeviceUpdate;
+  //time_t cloudDeviceUpdate;
+
+  NetworkType networkType;
+  
   TPLLocalDiscovery localDiscovery;
   //TPCloudDiscovery cloudDiscovery;
   
@@ -95,6 +112,9 @@ public:
   void addClient(TPLClientHandler& client);
   void start();
   void update();
+  bool sendRequest(TPLClientHandler* handler, String& jsonStr, StaticJsonDocument<1024>& doc);
+
+  friend class TPLClientHandler;
   
 };
 

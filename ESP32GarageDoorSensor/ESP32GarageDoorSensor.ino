@@ -12,11 +12,12 @@
 WiFiManager wifiManager;
 WiFiMulti WiFiMulti;
 
-TPLinkSmartDevice smartDevice;
+
 //TPLNetworkLocalClient localClient;
 //TPLLocalDiscovery localDiscovery;
 TPLNetworkManager netManager;
-TPLClientHandler client1("8006E12261657034F224406C89EA50301CFB2A92");
+//TPLClientHandler client1("8006E12261657034F224406C89EA50301CFB2A92");
+TPLinkSmartDevice smartDevice("8006E12261657034F224406C89EA50301CFB2A92");
 
 const int CONFIG_PANEL_PIN=35;
 
@@ -111,7 +112,7 @@ void setup() {
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
-  netManager.addClient(client1);
+  netManager.addClient(smartDevice);
 
   netManager.start();
 }

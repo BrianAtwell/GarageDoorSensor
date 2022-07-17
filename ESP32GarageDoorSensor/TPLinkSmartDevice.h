@@ -9,21 +9,30 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "TPLinkJsonManager.h"
+#include "TPLNetworkClient.h"
 
 
-class TPLinkSmartDevice
+class TPLinkSmartDevice : public TPLClientHandler
 {
 private:
-  int errorCode;
-  int updateTime;
   String alias;
+  uint8_t setRelayState;
+  uint8_t curRelayState;
+  time_t setRelayStartTime;
+  time_t timeoutSetRelay;
+
+protected:
+  void onPacketReceived(StaticJsonDocument<1024>& doc);
 
 public:
+  TPLinkSmartDevice(const char* ldeviceID);
+  void updateRelayState();
   bool SetRelay(bool state);
-  void GetRelay(bool &state);
-  int GetError();
-  int UpdateTime();
+  bool GetRelay();
   bool Update();
+  void setRelayTimeout(time_t ltimeout);
+  time_t getRelayTimeout();
+  void getAlias(String& oAlias);
   
 };
 
