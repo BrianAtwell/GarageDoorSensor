@@ -87,8 +87,9 @@ namespace TPLNetworkLocalClient
     const uint16_t BUFFER_SIZE = 50;
     char buffer[BUFFER_SIZE];
     int resultNum=0;
-
-    bool results=false;
+    std::vector<uint8_t> packedPacket;
+    std::vector<uint8_t> decryptedPacket;
+    int curBytesRead=0;
 
     // Todo
     // Add retry here??
@@ -102,8 +103,8 @@ namespace TPLNetworkLocalClient
           continue;
       }
   
+        
       {
-        std::vector<uint8_t> packedPacket;
         const char *dataStr = jsonStr.c_str();
         std::vector<uint8_t> discoveryPacket;
         
@@ -113,19 +114,20 @@ namespace TPLNetworkLocalClient
         
         // Encrypt message
         TPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
-  
-        //printHexString(packedPacket);
-      
-        // Send TCP Packet
-        resultNum=client.write(packedPacket.data(), packedPacket.size());
-  
-        if(resultNum != packedPacket.size())
-        {
-          Serial.print("Client Write bytes read not equal to bytes sent: ");
-          Serial.println(resultNum);
-          continue;
-        }
       }
+
+      //printHexString(packedPacket);
+    
+      // Send TCP Packet
+      resultNum=client.write(packedPacket.data(), packedPacket.size());
+
+      if(resultNum != packedPacket.size())
+      {
+        Serial.print("Client Write bytes read not equal to bytes sent: ");
+        Serial.println(resultNum);
+        continue;
+      }
+      packedPacket.clear();
 
       unsigned long timeout = millis();
       while (client.available() == 0) {
@@ -150,59 +152,49 @@ namespace TPLNetworkLocalClient
         readPacketLength=TPLNetworkLocalUtilities::littleToBigEndian(readPacketLength);
       }
   
-      std::vector<uint8_t> decryptedPacket;
+      
   
+      resultNum=1;
+      while(readPacketLength > bytesRead && resultNum == 1)
       {
-        std::vector<uint8_t> packedPacket;
-        uint32_t bytesRead=0;
-        uint32_t bytesToRead=0;
-        int curBytesRead=0;
-        const uint16_t BUFFER_SIZE = 50;
-        char buffer[BUFFER_SIZE];
-
-        resultNum=1;
-        while(readPacketLength > bytesRead && resultNum == 1)
-        {
-          timeout = millis();
-          while (client.available() == 0) {
-              if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
-                  Serial.println(">>> Client Timeout !");
-                  client.stop();
-                  resultNum=0;
-                  break;
-              }
-          }
-          
-          bytesToRead = readPacketLength-bytesRead;
-          if(bytesToRead > BUFFER_SIZE)
-          {
-            bytesToRead = BUFFER_SIZE;
-          }
-          
-          curBytesRead=client.read((uint8_t *)buffer, bytesToRead);
-
-          if(curBytesRead != bytesToRead)
-          {
-            Serial.print("Client Read mismatch Bytes read: ");
-            Serial.print(curBytesRead);
-            Serial.print(" Expected to read: ");
-            Serial.println(bytesToRead);
-          }
-      
-          bytesRead+=curBytesRead;
-          
-          packedPacket.insert(packedPacket.end(),buffer,buffer+curBytesRead);
-          //printHexString(packedPacket);
+        timeout = millis();
+        while (client.available() == 0) {
+            if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
+                Serial.println(">>> Client Timeout !");
+                client.stop();
+                resultNum=0;
+                break;
+            }
         }
-
-        if(resultNum == 1)
+        
+        bytesToRead = readPacketLength-bytesRead;
+        if(bytesToRead > BUFFER_SIZE)
         {
-      
-          // Decrypt
-          TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
-          printByteString(decryptedPacket);
+          bytesToRead = BUFFER_SIZE;
         }
-  
+        
+        curBytesRead=client.read((uint8_t *)buffer, bytesToRead);
+
+        if(curBytesRead != bytesToRead)
+        {
+          Serial.print("Client Read mismatch Bytes read: ");
+          Serial.print(curBytesRead);
+          Serial.print(" Expected to read: ");
+          Serial.println(bytesToRead);
+        }
+    
+        bytesRead+=curBytesRead;
+        
+        packedPacket.insert(packedPacket.end(),buffer,buffer+curBytesRead);
+        //printHexString(packedPacket);
+      }
+
+      if(resultNum == 1)
+      {
+    
+        // Decrypt
+        TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
+        printByteString(decryptedPacket);
       }
 
       if(resultNum == 1)
@@ -216,12 +208,12 @@ namespace TPLNetworkLocalClient
         }
         else
         {
-          results=true;
+          return true;
         }
       }
     }
 
-    return results;
+    return false;
   }
 };
 
