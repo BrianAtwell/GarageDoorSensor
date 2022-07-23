@@ -11,7 +11,9 @@
 
 void AddUint8ToVector(uint8_t* bytes, int bytesLen, std::vector<uint8_t>& vect);
 void printByteString(std::vector<uint8_t> dataBytes);
+void printByteString(std::vector<uint8_t> dataBytes, int byteLen);
 void printHexString(std::vector<uint8_t> dataBytes);
+void printHexString(std::vector<uint8_t> dataBytes, int byteLen);
 void printHexString(int dataBytes);
 
 #endif

@@ -28,7 +28,7 @@ public:
   static const unsigned int BlockSize=4;
   static const uint32_t TimeoutSize = 2000;
   static const int Port = 9999;
-  static int littleToBigEndian(int dataIn);
+  static uint32_t littleToBigEndian(uint32_t dataIn);
   static void xorEncrypt(std::vector<uint8_t>& unencrypted, std::vector<uint8_t>& output);
   static void encrypt(std::vector<uint8_t> &inputJSON, std::vector<uint8_t>& pack);
   static void xorDecrypted(std::vector<uint8_t> &ciphertext, std::vector<uint8_t> &output);

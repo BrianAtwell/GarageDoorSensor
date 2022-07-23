@@ -13,7 +13,7 @@
 #include <cstring>
 #include "Utilities.h"
 
-int TPLNetworkLocalUtilities::littleToBigEndian(int dataIn)
+uint32_t TPLNetworkLocalUtilities::littleToBigEndian(uint32_t dataIn)
 {
   int bigEndian;
   uint8_t* bigEndianPtr=((uint8_t*)&bigEndian);
@@ -86,84 +86,142 @@ namespace TPLNetworkLocalClient
     uint32_t bytesToRead=0;
     const uint16_t BUFFER_SIZE = 50;
     char buffer[BUFFER_SIZE];
+    int resultNum=0;
 
-    // Use WiFiClient class to create TCP connections
-    WiFiClient client;
-    if (!client.connect(handler->getIP().c_str(), TPLNetworkLocalUtilities::Port)) {
-        Serial.println("connection failed");
-        return false;
-    }
+    bool results=false;
 
+    // Todo
+    // Add retry here??
+    for(int i=0; i < 1; i++)
     {
-      std::vector<uint8_t> packedPacket;
-      const char *dataStr = jsonStr.c_str();
-      std::vector<uint8_t> discoveryPacket;
-      
-      AddUint8ToVector((uint8_t*)dataStr, sizeof(dataStr)-1, discoveryPacket);
-      
-      // Encrypt message
-      TPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
-    
-      // Send TCP Packet
-      client.write(packedPacket.data(), packedPacket.size());
-    }
+
+      // Use WiFiClient class to create TCP connections
+      WiFiClient client;
+      if (!client.connect(handler->getIP().c_str(), TPLNetworkLocalUtilities::Port)) {
+          Serial.println("connection failed");
+          continue;
+      }
   
-    // Read Block Size which holds the length
-    client.read(((uint8_t*)&readPacketLength), TPLNetworkLocalUtilities::BlockSize);
-    
-    //client.read(((uint8_t*)&readPacketLength), readPacketLength);
-
-    std::vector<uint8_t> decryptedPacket;
-
-    {
-      std::vector<uint8_t> packedPacket;
-      uint32_t readPacketLength=0;
-      uint32_t bytesRead=0;
-      uint32_t bytesToRead=0;
-      const uint16_t BUFFER_SIZE = 50;
-      char buffer[BUFFER_SIZE];
-      
-      while(client.available() > 0 && readPacketLength > bytesRead)
       {
-        unsigned long timeout = millis();
-        while (client.available() == 0) {
-            if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
-                Serial.println(">>> Client Timeout !");
-                client.stop();
-                return false;
-            }
-        }
+        std::vector<uint8_t> packedPacket;
+        const char *dataStr = jsonStr.c_str();
+        std::vector<uint8_t> discoveryPacket;
         
-        bytesToRead = readPacketLength-bytesRead;
-        if(bytesToRead > BUFFER_SIZE)
-        {
-          bytesToRead = BUFFER_SIZE;
-        }
+        AddUint8ToVector((uint8_t*)dataStr, strlen(dataStr), discoveryPacket);
+
+        printByteString(discoveryPacket);
         
-        client.read((uint8_t *)buffer, BUFFER_SIZE);
-    
-        bytesRead+=bytesToRead;
-        
-        packedPacket.insert(packedPacket.end(),buffer,buffer+bytesToRead);
+        // Encrypt message
+        TPLNetworkLocalUtilities::encrypt(discoveryPacket, packedPacket);
+  
         //printHexString(packedPacket);
+      
+        // Send TCP Packet
+        resultNum=client.write(packedPacket.data(), packedPacket.size());
+  
+        if(resultNum != packedPacket.size())
+        {
+          Serial.print("Client Write bytes read not equal to bytes sent: ");
+          Serial.println(resultNum);
+          continue;
+        }
+      }
+
+      unsigned long timeout = millis();
+      while (client.available() == 0) {
+        if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
+            Serial.println(">>> Client Timeout !");
+            client.stop();
+            continue;
+        }
       }
     
-      // Decrypt
-      TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
+      // Read Block Size which holds the length
+      resultNum=client.read(((uint8_t*)&readPacketLength), TPLNetworkLocalUtilities::BlockSize);
+  
+      if(resultNum==0)
+      {
+        Serial.print("connection failed bytes read: ");
+        Serial.println(resultNum);
+        continue;
+      }
+      else
+      {
+        readPacketLength=TPLNetworkLocalUtilities::littleToBigEndian(readPacketLength);
+      }
+  
+      std::vector<uint8_t> decryptedPacket;
+  
+      {
+        std::vector<uint8_t> packedPacket;
+        uint32_t bytesRead=0;
+        uint32_t bytesToRead=0;
+        int curBytesRead=0;
+        const uint16_t BUFFER_SIZE = 50;
+        char buffer[BUFFER_SIZE];
 
-      //printByteString(decryptedPacket);
+        resultNum=1;
+        while(readPacketLength > bytesRead && resultNum == 1)
+        {
+          timeout = millis();
+          while (client.available() == 0) {
+              if (millis() - timeout > TPLNetworkLocalUtilities::TimeoutSize) {
+                  Serial.println(">>> Client Timeout !");
+                  client.stop();
+                  resultNum=0;
+                  break;
+              }
+          }
+          
+          bytesToRead = readPacketLength-bytesRead;
+          if(bytesToRead > BUFFER_SIZE)
+          {
+            bytesToRead = BUFFER_SIZE;
+          }
+          
+          curBytesRead=client.read((uint8_t *)buffer, bytesToRead);
 
+          if(curBytesRead != bytesToRead)
+          {
+            Serial.print("Client Read mismatch Bytes read: ");
+            Serial.print(curBytesRead);
+            Serial.print(" Expected to read: ");
+            Serial.println(bytesToRead);
+          }
+      
+          bytesRead+=curBytesRead;
+          
+          packedPacket.insert(packedPacket.end(),buffer,buffer+curBytesRead);
+          //printHexString(packedPacket);
+        }
+
+        if(resultNum == 1)
+        {
+      
+          // Decrypt
+          TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
+          printByteString(decryptedPacket);
+        }
+  
+      }
+
+      if(resultNum == 1)
+      {
+        DeserializationError error = deserializeJson(doc, decryptedPacket.data());
+    
+        if (error) {
+          Serial.print("deserializeJson() failed: ");
+          Serial.println(error.c_str());
+          continue;
+        }
+        else
+        {
+          results=true;
+        }
+      }
     }
 
-    DeserializationError error = deserializeJson(doc, decryptedPacket.data());
-
-    if (error) {
-      Serial.print("deserializeJson() failed: ");
-      Serial.println(error.c_str());
-      return false;
-    }
-
-    return true;
+    return results;
   }
 };
 
@@ -216,7 +274,7 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
   }
 
   udp.parsePacket();
-  //receive response from server, it will be HELLO WORLD
+  //receive response from server
   if((readBytes = udp.read(buffer, BUFFER_SIZE)) > 0){
     int count=1;
     //Serial.print("Packet available from remote IP: ");
@@ -236,9 +294,9 @@ bool TPLLocalDiscovery::update(StaticJsonDocument<1024>& doc, String& ip)
     // Decrypt message
     TPLNetworkLocalUtilities::decrypt(packedPacket, decryptedPacket);
 
-    Serial.print("Discovery Packet Recieved from IP: ");
-    Serial.println(udp.remoteIP().toString());
-    printByteString(decryptedPacket);
+    //Serial.print("Discovery Packet Recieved from IP: ");
+    //Serial.println(udp.remoteIP().toString());
+    //printByteString(decryptedPacket);
     
 
     DeserializationError error = deserializeJson(doc, decryptedPacket.data());
@@ -367,7 +425,15 @@ void TPLNetworkManager::update()
           // Found device
           if(ip.length() > 0)
           {
-            handler->ip = ip;
+            if(handler->ip != ip)
+            {
+              Serial.print("Device Found, IP: ");
+              Serial.print(ip);
+              Serial.print(" Device ID: ");
+              Serial.println(deviceId);
+            }
+            
+            handler->ip = ip;            
           }
           
           TPLNetworkManager::toType(doc, handler);

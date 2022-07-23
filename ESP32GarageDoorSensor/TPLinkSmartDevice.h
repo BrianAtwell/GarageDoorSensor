@@ -23,6 +23,7 @@ private:
 
 protected:
   void onPacketReceived(StaticJsonDocument<1024>& doc);
+  bool SendUpdateRequest();
 
 public:
   TPLinkSmartDevice(const char* ldeviceID);
