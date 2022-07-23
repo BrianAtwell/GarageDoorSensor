@@ -6,6 +6,7 @@
 #include "TPLinkSmartDevice.h"
 #include "TPLNetworkClient.h"
 #include "Utilities.h"
+#include "AverageHandler.h"
 
 
 /*
@@ -26,6 +27,11 @@ uint32_t touchInactiveTime=0;
 uint32_t touchPrevTime=0;
 const uint32_t touchActiveMaxTime=700;
 const uint32_t touchInactiveMaxTime=1000;
+int touch0Sample=50;
+
+Timer touchTimer(10, nullptr);
+AverageHandler<100, int> touch0Avg;
+int curTouch0Avg=0;
 
 
 //TPLNetworkLocalClient localClient;
@@ -140,7 +146,15 @@ void loop() {
   // put your main code here, to run repeatedly:
   netManager.update();
 
-  if(touchRead(T0) > touch0threshold){
+  if(touchTimer.Update())
+  {
+    // Only update every 10 ms
+    touch0Sample=touchRead(T0);
+    touch0Avg.addSample(touch0Sample);
+    curTouch0Avg=touch0Avg.calculateAverage();
+  }
+
+  if(curTouch0Avg > touch0threshold){
     if(touch0Pressed == false)
     {
       touchPrevTime=millis();
