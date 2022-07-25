@@ -13,6 +13,11 @@
  * Description: This example Program will toggle TP Link KASA smart plug
  *  when you touch Touch0 sensor. Provide your own device ID. The device 
  *  ID can be aquired through python-kasa.
+ *  
+ *  Changed to IR Photo diode and IR LED. This will be place around Garage Door at bottom of the garage door. 
+ *  It will detect if the door is open or closed. When open the analog in will read towards 0 direction where 
+ *  0 is the most saturated IR signal. When the garage door is close the path of the signal will be broken and
+ *  it will read a value between 1500 and up.
  */
 
 #include <vector>
@@ -20,6 +25,7 @@
 WiFiManager wifiManager;
 WiFiMulti WiFiMulti;
 
+/*
 int touch0threshold = 40;
 bool touch0Pressed = false;
 uint32_t touchActiveTime=0;
@@ -28,10 +34,29 @@ uint32_t touchPrevTime=0;
 const uint32_t touchActiveMaxTime=700;
 const uint32_t touchInactiveMaxTime=1000;
 int touch0Sample=50;
-
-Timer touchTimer(10, nullptr);
 AverageHandler<100, int> touch0Avg;
 int curTouch0Avg=0;
+*/
+
+// IR LED: 3.3V to 470 ohm resistor, 470 ohm resistor to Anode, Cathode to Ground.
+
+// Photo diode: 3.3V to 10K ohm resistor, 10k ohm resistor to Cathode of Photo diode,
+//              Cathode is also connected Arduino anlog Input GPIO36/AD0, Anode is connected to Ground.
+
+// 0 Value when IR is signal is directly connected
+// 1500-2000 Value when IR signal is blocked with thick paper/Door Closed.
+
+int analogIRMinThreshold = 1000;
+bool analogIRPressed = false;
+AverageHandler<100, int> analogIRAvg;
+int curAnalogIRAvg=0;
+int analogIRSample=50;
+
+const int analogIRInPin = 36;
+
+Timer touchTimer(10, nullptr);
+Timer analogIRTimer(10, nullptr);
+
 
 
 //TPLNetworkLocalClient localClient;
@@ -121,11 +146,11 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(CONFIG_PANEL_PIN, INPUT);
+  pinMode(analogIRInPin, INPUT);
 
   WiFi.mode(WIFI_STA);
 
   pollConfigPanelSwitch();
-  smartDevice.setRelay(true);
 
   setClock();
 
@@ -137,15 +162,41 @@ void setup() {
 
   netManager.start();
 
+/*
   touchActiveTime=0;
   touchInactiveTime=0;
   touchPrevTime=millis();
+  */
+
+  analogIRPressed=false;
+  curAnalogIRAvg=1000;
+
+  // Calculate initial Average
+  for(int i=0; i<100; i++)
+  {
+    analogIRSample=analogRead(analogIRInPin);
+    analogIRAvg.addSample(analogIRSample);
+    curAnalogIRAvg=analogIRAvg.calculateAverage();
+  }
+
+  // Initialize so we don't change the relay on startup
+  // only change when we detect a new change
+  if(curAnalogIRAvg < analogIRMinThreshold){
+    analogIRPressed=true;
+  }
+  else
+  {
+    analogIRPressed=false;
+  }
+
+  Serial.println("Entering Loop");
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   netManager.update();
 
+  /*
   if(touchTimer.Update())
   {
     // Only update every 10 ms
@@ -153,7 +204,36 @@ void loop() {
     touch0Avg.addSample(touch0Sample);
     curTouch0Avg=touch0Avg.calculateAverage();
   }
+  */
 
+  if(analogIRTimer.Update())
+  {
+    analogIRSample=analogRead(analogIRInPin);
+    analogIRAvg.addSample(analogIRSample);
+    curAnalogIRAvg=analogIRAvg.calculateAverage();
+  }
+
+  if(curAnalogIRAvg < analogIRMinThreshold){
+    if(analogIRPressed == false)
+    {
+      // Execute once per peak and valley
+
+      Serial.println("Door Close");
+      smartDevice.setRelay(true);
+      
+      analogIRPressed=true;
+    }
+  }
+  else
+  {
+    if(analogIRPressed == true)
+    {
+
+      analogIRPressed=false;
+    }
+  }
+
+  /*
   if(curTouch0Avg > touch0threshold){
     if(touch0Pressed == false)
     {
@@ -197,4 +277,5 @@ void loop() {
       }
     }
   }
+  */
 }
