@@ -6,7 +6,7 @@
 #include "Timer.h"
 #include <Arduino.h>
 
-Timer::Timer(unsigned long ldelay, void (*lTimerFunc)()) : delay(ldelay), timerFunc(lTimerFunc){}
+Timer::Timer(unsigned long ldelay, void (*lTimerFunc)()) : delay(ldelay), timerFunc(lTimerFunc), lastUpdate(millis()){}
 
 bool Timer::Update()
 {
@@ -23,4 +23,9 @@ bool Timer::Update()
   }
 
   return false;
+}
+
+void Timer::Reset()
+{
+  lastUpdate=millis();
 }

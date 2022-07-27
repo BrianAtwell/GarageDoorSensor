@@ -8,6 +8,8 @@
 #include "Utilities.h"
 #include "AverageHandler.h"
 
+# define ARRAY_SIZE(type) sizeof(type)/sizeof(type[0])
+
 
 /*
  * Description: This example Program will toggle TP Link KASA smart plug
@@ -54,8 +56,10 @@ int analogIRSample=50;
 
 const int analogIRInPin = 36;
 
-Timer touchTimer(10, nullptr);
+//Timer touchTimer(10, nullptr);
 Timer analogIRTimer(10, nullptr);
+//Timer firstLightOnTimer(8000, nullptr);
+//bool firstLightTurnedOn=false;
 
 
 
@@ -63,7 +67,7 @@ Timer analogIRTimer(10, nullptr);
 //TPLLocalDiscovery localDiscovery;
 TPLNetworkManager netManager;
 //TPLClientHandler client1("8006E12261657034F224406C89EA50301CFB2A92");
-TPLinkSmartDevice smartDevice("80062AFF83D4BC31B96FEE14AC2FB98C1D90E808");
+TPLinkSmartDevice smartDevices[] = {TPLinkSmartDevice("80062AFF83D4BC31B96FEE14AC2FB98C1D90E808"),TPLinkSmartDevice("800686F229F4148C8D9F0DEBEBE656531D90744B")};
 
 const int CONFIG_PANEL_PIN=35;
 
@@ -158,7 +162,10 @@ void setup() {
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
-  netManager.addClient(smartDevice);
+  for(int i=0; i<ARRAY_SIZE(smartDevices); i++)
+  {
+    netManager.addClient(smartDevices[i]);
+  }
 
   netManager.start();
 
@@ -206,6 +213,21 @@ void loop() {
   }
   */
 
+  /*
+  if(firstLightTurnedOn)
+  {
+    if(firstLightOnTimer.Update())
+    {
+      if(smartDevices[0].getRelay() == true && smartDevices[1].getRelay() == false)
+      {
+        smartDevices[1].setRelay(true);
+        firstLightTurnedOn=false;
+      }
+    }
+  }
+  */
+  
+
   if(analogIRTimer.Update())
   {
     analogIRSample=analogRead(analogIRInPin);
@@ -218,8 +240,19 @@ void loop() {
     {
       // Execute once per peak and valley
 
-      Serial.println("Door Close");
-      smartDevice.setRelay(true);
+      Serial.println("Door Opened");
+      for(int i=0; i<ARRAY_SIZE(smartDevices); i++)
+      {
+        smartDevices[i].setRelay(true);
+      }
+
+      /*
+      if(smartDevices[1].getRelay() == false)
+      {
+        firstLightTurnedOn=true;
+        firstLightOnTimer.Reset();
+      }
+      */
       
       analogIRPressed=true;
     }

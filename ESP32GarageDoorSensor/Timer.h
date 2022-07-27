@@ -12,6 +12,7 @@ public:
   Timer(unsigned long ldelay, void (*lTimerFunc)());
 
   bool Update();
+  void Reset();
 
 private:
   unsigned long lastUpdate;
