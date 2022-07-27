@@ -99,6 +99,8 @@ private:
   //time_t localDeviceUpdate;
   //time_t cloudDeviceUpdate;
 
+  bool devicesAreFound;
+
   NetworkType networkType;
   
   TPLLocalDiscovery localDiscovery;
@@ -114,6 +116,8 @@ public:
   void start();
   void update();
   bool sendRequest(TPLClientHandler* handler, String& jsonStr, StaticJsonDocument<1024>& doc);
+
+  bool allDevicesAvailable() { return devicesAreFound; }
 
   friend class TPLClientHandler;
   

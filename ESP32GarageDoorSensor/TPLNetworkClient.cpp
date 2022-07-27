@@ -333,7 +333,7 @@ void TPLClientHandler::update()
 {
 }
 
-TPLNetworkManager::TPLNetworkManager() : networkType(TPLNetworkManager::NetworkType::LocalTPLNetwork)
+TPLNetworkManager::TPLNetworkManager() : networkType(TPLNetworkManager::NetworkType::LocalTPLNetwork), devicesAreFound(false)
 {
   
 }
@@ -404,11 +404,18 @@ void TPLNetworkManager::update()
       //{
       //  localTimeUpdate=time(nullptr);
       //}
+
+      devicesAreFound=true;
   
       // Loop through client handlers
       for(std::list<TPLClientHandler*>::iterator iter= clientList.begin(); iter != clientList.end(); iter++)
       {
         TPLClientHandler *handler = *iter;
+
+        if(handler->ip.length()==0)
+        {
+          devicesAreFound=false;
+        }
   
         if(deviceId && strncmp(handler->deviceID, deviceId, DEVICE_ID_LENGTH) == 0)
         {

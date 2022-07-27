@@ -55,7 +55,11 @@ int curAnalogIRAvg=0;
 int analogIRSample=50;
 
 const int analogIRInPin = 36;
+const int errorLEDPin=17;
+const int connectedLEDPin=16;
+bool connectedLEDState=false;
 
+Timer blinkLEDConnectedTimer(250, nullptr);
 //Timer touchTimer(10, nullptr);
 Timer analogIRTimer(10, nullptr);
 //Timer firstLightOnTimer(8000, nullptr);
@@ -151,6 +155,11 @@ void setup() {
 
   pinMode(CONFIG_PANEL_PIN, INPUT);
   pinMode(analogIRInPin, INPUT);
+  pinMode(errorLEDPin, OUTPUT);
+  pinMode(connectedLEDPin,OUTPUT);
+
+  digitalWrite(errorLEDPin,LOW);
+  digitalWrite(connectedLEDPin,LOW);
 
   WiFi.mode(WIFI_STA);
 
@@ -226,7 +235,28 @@ void loop() {
     }
   }
   */
-  
+
+  if(blinkLEDConnectedTimer.Update())
+  {
+    if(netManager.allDevicesAvailable())
+    {
+      connectedLEDState=true;
+      digitalWrite(connectedLEDPin, HIGH);
+    }
+    else
+    {
+      if(connectedLEDState == true)
+      {
+        digitalWrite(connectedLEDPin, LOW);
+        connectedLEDState=false;
+      }
+      else
+      {
+        digitalWrite(connectedLEDPin, HIGH);
+        connectedLEDState=true;
+      }
+    }
+  }
 
   if(analogIRTimer.Update())
   {
@@ -239,11 +269,21 @@ void loop() {
     if(analogIRPressed == false)
     {
       // Execute once per peak and valley
+      bool noErrors=false;
 
       Serial.println("Door Opened");
       for(int i=0; i<ARRAY_SIZE(smartDevices); i++)
       {
-        smartDevices[i].setRelay(true);
+        noErrors=noErrors|!smartDevices[i].setRelay(true);
+      }
+
+      if(noErrors==true)
+      {
+        digitalWrite(errorLEDPin, HIGH);
+      }
+      else
+      {
+        digitalWrite(errorLEDPin, LOW);
       }
 
       /*

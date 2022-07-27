@@ -68,7 +68,7 @@ bool TPLinkSmartDevice::setRelay(bool state)
 
   if(ip.length()>0)
   {
-    SendUpdateRequest();
+    return SendUpdateRequest();
   }
   else
   {
