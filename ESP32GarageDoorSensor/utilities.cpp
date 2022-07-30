@@ -26,10 +26,32 @@ void printByteString(std::vector<uint8_t> dataBytes)
   Serial.println();
 }
 
+void printByteString(std::vector<uint8_t> dataBytes, int byteLen)
+{
+  for(size_t i=0; i<byteLen; i++)
+  {
+    Serial.print((char)dataBytes[i]);
+  }
+
+  Serial.println();
+}
+
 void printHexString(std::vector<uint8_t> dataBytes)
 {
   size_t len=dataBytes.size();
   for(size_t i=0; i<len; i++)
+  {
+    Serial.print("0x");
+    Serial.print((uint8_t)dataBytes[i], HEX);
+    Serial.print(", ");
+  }
+
+  Serial.println();
+}
+
+void printHexString(std::vector<uint8_t> dataBytes, int byteLen)
+{
+  for(size_t i=0; i<byteLen; i++)
   {
     Serial.print("0x");
     Serial.print((uint8_t)dataBytes[i], HEX);
