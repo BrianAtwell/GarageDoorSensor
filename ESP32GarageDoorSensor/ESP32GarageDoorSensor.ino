@@ -20,6 +20,12 @@
  *  It will detect if the door is open or closed. When open the analog in will read towards 0 direction where 
  *  0 is the most saturated IR signal. When the garage door is close the path of the signal will be broken and
  *  it will read a value between 1500 and up.
+ *  
+ *  When door is open the GPIO22 Yellow LED will be high/on and low/off when closed.
+ *  When started the GPIO16 Green LED will blink until all smart deivces are found. Once found it will remain solid.
+ *  When the door is opened it will send a SetRelay true command to each smart device. If any device fails 
+ *  it will set GPIO17 high/on. If all devices are successful it will set GPIO17 low/off. It only goes off
+ *  on the next door close/open cycle.
  */
 
 #include <vector>
@@ -57,6 +63,7 @@ int analogIRSample=50;
 const int analogIRInPin = 36;
 const int errorLEDPin=17;
 const int connectedLEDPin=16;
+const int doorStateLEDPin=22;
 bool connectedLEDState=false;
 
 Timer blinkLEDConnectedTimer(250, nullptr);
@@ -71,7 +78,7 @@ Timer analogIRTimer(10, nullptr);
 //TPLLocalDiscovery localDiscovery;
 TPLNetworkManager netManager;
 //TPLClientHandler client1("8006E12261657034F224406C89EA50301CFB2A92");
-TPLinkSmartDevice smartDevices[] = {TPLinkSmartDevice("80062AFF83D4BC31B96FEE14AC2FB98C1D90E808"),TPLinkSmartDevice("800686F229F4148C8D9F0DEBEBE656531D90744B")};
+TPLinkSmartDevice smartDevices[] = {TPLinkSmartDevice("800618D5FFDD4567F0DCE5188384DDBE1F7E0587"),TPLinkSmartDevice("8006E621671C32C8AC642F0AEDD806751F7E7890")};
 
 const int CONFIG_PANEL_PIN=35;
 
@@ -157,9 +164,11 @@ void setup() {
   pinMode(analogIRInPin, INPUT);
   pinMode(errorLEDPin, OUTPUT);
   pinMode(connectedLEDPin,OUTPUT);
+  pinMode(doorStateLEDPin,OUTPUT);
 
   digitalWrite(errorLEDPin,LOW);
   digitalWrite(connectedLEDPin,LOW);
+  digitalWrite(doorStateLEDPin, LOW);
 
   WiFi.mode(WIFI_STA);
 
@@ -266,6 +275,9 @@ void loop() {
   }
 
   if(curAnalogIRAvg < analogIRMinThreshold){
+
+    digitalWrite(doorStateLEDPin, HIGH);
+    
     if(analogIRPressed == false)
     {
       // Execute once per peak and valley
@@ -299,6 +311,7 @@ void loop() {
   }
   else
   {
+    digitalWrite(doorStateLEDPin, LOW);
     if(analogIRPressed == true)
     {
 
