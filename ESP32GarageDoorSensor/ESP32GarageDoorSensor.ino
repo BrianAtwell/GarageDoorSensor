@@ -56,7 +56,7 @@ int curTouch0Avg=0;
 
 int analogIRMinThreshold = 1000;
 bool analogIRPressed = false;
-AverageHandler<100, int> analogIRAvg;
+AverageHandler<60, int> analogIRAvg;
 int curAnalogIRAvg=0;
 int analogIRSample=50;
 
@@ -68,7 +68,7 @@ bool connectedLEDState=false;
 
 Timer blinkLEDConnectedTimer(250, nullptr);
 //Timer touchTimer(10, nullptr);
-Timer analogIRTimer(10, nullptr);
+Timer analogIRTimer(9, nullptr);
 //Timer firstLightOnTimer(8000, nullptr);
 //bool firstLightTurnedOn=false;
 
@@ -272,6 +272,7 @@ void loop() {
     analogIRSample=analogRead(analogIRInPin);
     analogIRAvg.addSample(analogIRSample);
     curAnalogIRAvg=analogIRAvg.calculateAverage();
+    Serial.println(curAnalogIRAvg);
   }
 
   if(curAnalogIRAvg < analogIRMinThreshold){
